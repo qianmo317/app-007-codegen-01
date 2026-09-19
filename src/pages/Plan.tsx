@@ -2,12 +2,17 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getPlan, savePlan, setRecentPlanId } from '../db';
 import { createHistoryManager } from '../history';
-import { getConflictMap, getTableStats } from '../utils';
-import type { Plan as PlanType, Command } from '../types';
+import { getConflictMap, getTableStats, generateId } from '../utils';
+import type { Plan as PlanType, Command, ChangeLog, Guest } from '../types';
 import GuestPool from '../components/GuestPool';
 import Canvas from '../components/Canvas';
 import RulesPanel from '../components/RulesPanel';
 import StatsBar from '../components/StatsBar';
+
+/** 老数据兼容：补 logs 字段 */
+function normalize(p: PlanType): PlanType {
+  return { ...p, logs: p.logs ?? [] };
+}
 
 export default function PlanPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,12 +29,13 @@ export default function PlanPage() {
     if (!id) return;
     getPlan(id).then((p) => {
       if (!p) {
-        const fallback = { id, name: '未命名方案', tables: [], guests: [], rules: [], updatedAt: Date.now() };
+        const fallback = normalize({ id, name: '未命名方案', tables: [], guests: [], rules: [], updatedAt: Date.now() });
         historyRef.current = createHistoryManager(fallback);
         setPlan(fallback);
       } else {
-        historyRef.current = createHistoryManager(p);
-        setPlan(p);
+        const np = normalize(p);
+        historyRef.current = createHistoryManager(np);
+        setPlan(np);
         setRecentPlanId(id);
       }
       setLoading(false);
@@ -62,6 +68,68 @@ export default function PlanPage() {
     if (!historyRef.current) return;
     const p = historyRef.current.redo();
     if (p) setPlan(p);
+  }, []);
+
+  /** 微信名单批量导入：新增宾客 + 写一条导入日志，作为一次可撤销/可退回的操作 */
+  const handleImportBatch = useCallback(
+    (
+      newGuests: Guest[],
+      meta: { batchId: string; familyCount: number; adults: number; children: number },
+    ) => {
+      if (!historyRef.current || newGuests.length === 0) return;
+      const current = historyRef.current.current();
+      const log: ChangeLog = {
+        id: generateId(),
+        ts: Date.now(),
+        kind: 'import',
+        summary: `导入 ${meta.familyCount} 家 ${newGuests.length} 位（大人 ${meta.adults}${
+          meta.children > 0 ? `、小孩 ${meta.children}` : ''
+        }）`,
+        batchId: meta.batchId,
+        guestIds: newGuests.map((g) => g.id),
+      };
+      const next: PlanType = {
+        ...current,
+        guests: [...current.guests, ...newGuests],
+        logs: [log, ...(current.logs ?? [])].slice(0, 100),
+      };
+      historyRef.current.push(current, { type: 'updatePlan', plan: next });
+      setPlan(historyRef.current.current());
+    },
+    [],
+  );
+
+  /** 整批退回：删掉这一批导入的宾客（含已拖到桌上的座位与相关规则），并补一条退回日志 */
+  const handleRollbackBatch = useCallback((log: ChangeLog) => {
+    if (!historyRef.current) return;
+    const current = historyRef.current.current();
+    const ids = new Set(log.guestIds ?? []);
+    if (ids.size === 0) return;
+    const guests = current.guests.filter((g) => !ids.has(g.id));
+    const tables = current.tables.map((t) => ({
+      ...t,
+      seatOrder: t.seatOrder.filter((gid) => !ids.has(gid)),
+    }));
+    const rules = current.rules.filter((r) => !ids.has(r.a) && !ids.has(r.b));
+    const removed = current.guests.length - guests.length;
+    const rollbackLog: ChangeLog = {
+      id: generateId(),
+      ts: Date.now(),
+      kind: 'rollback',
+      summary: `整批退回「${log.summary}」，删除 ${removed} 位`,
+    };
+    const updatedLogs = (current.logs ?? []).map((l) =>
+      l.id === log.id ? { ...l, rolledBack: true } : l,
+    );
+    const next: PlanType = {
+      ...current,
+      guests,
+      tables,
+      rules,
+      logs: [rollbackLog, ...updatedLogs].slice(0, 100),
+    };
+    historyRef.current.push(current, { type: 'updatePlan', plan: next });
+    setPlan(historyRef.current.current());
   }, []);
 
   useEffect(() => {
@@ -106,6 +174,7 @@ export default function PlanPage() {
       <div className="plan-body">
         <GuestPool
           guests={plan.guests}
+          logs={plan.logs ?? []}
           selectedId={selectedGuestId}
           onSelect={setSelectedGuestId}
           onAdd={(g) => dispatch({ type: 'addGuest', guest: g })}
@@ -116,6 +185,8 @@ export default function PlanPage() {
             const guests = plan.guests.map((gg) => gg.id === g.id ? g : gg);
             dispatch({ type: 'updateGuests', guests });
           }}
+          onImportBatch={handleImportBatch}
+          onRollbackBatch={handleRollbackBatch}
         />
         <Canvas
           plan={plan}

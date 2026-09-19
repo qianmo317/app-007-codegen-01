@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import type { Guest } from '../types';
-import { generateId, parseGuestsText } from '../utils';
+import type { ChangeLog, Guest } from '../types';
+import { generateId } from '../utils';
 import { TAG_OPTIONS } from '../types';
+import ImportWizard from './ImportWizard';
+import ChangeLogPanel from './ChangeLogPanel';
 
 interface Props {
   guests: Guest[];
+  logs: ChangeLog[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onAdd: (guest: Guest) => void;
@@ -12,23 +15,31 @@ interface Props {
   onDragStart: (id: string | null) => void;
   conflictMap: Map<string, string[]>;
   onUpdate?: (guest: Guest) => void;
+  /** 批量导入：本批宾客 */
+  onImportBatch: (
+    guests: Guest[],
+    meta: { batchId: string; familyCount: number; adults: number; children: number },
+  ) => void;
+  /** 整批退回 */
+  onRollbackBatch: (log: ChangeLog) => void;
 }
 
-export default function GuestPool({ guests, selectedId, onSelect, onAdd, onRemove, onDragStart, conflictMap, onUpdate }: Props) {
+export default function GuestPool({
+  guests,
+  logs,
+  selectedId,
+  onSelect,
+  onAdd,
+  onRemove,
+  onDragStart,
+  conflictMap,
+  onUpdate,
+  onImportBatch,
+  onRollbackBatch,
+}: Props) {
   const [showImport, setShowImport] = useState(false);
-  const [importText, setImportText] = useState('');
   const [filterTag, setFilterTag] = useState<string>('');
   const [search, setSearch] = useState('');
-
-  const handleImport = () => {
-    const parsed = parseGuestsText(importText);
-    for (const p of parsed) {
-      const validTags = p.tags.filter((t) => TAG_OPTIONS.includes(t));
-      onAdd({ id: generateId(), name: p.name, tags: validTags, partySize: 1 });
-    }
-    setImportText('');
-    setShowImport(false);
-  };
 
   const filtered = guests.filter((g) => {
     const matchTag = !filterTag || g.tags.includes(filterTag);
@@ -40,22 +51,20 @@ export default function GuestPool({ guests, selectedId, onSelect, onAdd, onRemov
 
   return (
     <div className="guest-pool">
-      <h3>宾客池 ({guests.length})</h3>
+      <h3>宾客池（{guests.length} 位）</h3>
       <div className="pool-actions">
-        <button onClick={() => setShowImport((s) => !s)}>批量导入</button>
-        <button onClick={() => onAdd({ id: generateId(), name: '新宾客', tags: [], partySize: 1 })}>添加宾客</button>
+        <button className="btn-import-main" onClick={() => setShowImport(true)}>
+          📋 粘贴名单导入
+        </button>
+        <button
+          onClick={() => onAdd({ id: generateId(), name: '新宾客', tags: [], partySize: 1 })}
+        >
+          单个添加
+        </button>
       </div>
-      {showImport && (
-        <div className="import-panel">
-          <textarea
-            placeholder="粘贴姓名，每行一个，可带标签（如：张三 男方亲属）"
-            value={importText}
-            onChange={(e) => setImportText(e.target.value)}
-            rows={5}
-          />
-          <button onClick={handleImport}>确认导入</button>
-        </div>
-      )}
+
+      <ChangeLogPanel logs={logs} guests={guests} onRollback={onRollbackBatch} />
+
       <div className="pool-filters">
         <input placeholder="搜索姓名" value={search} onChange={(e) => setSearch(e.target.value)} />
         <select value={filterTag} onChange={(e) => setFilterTag(e.target.value)}>
@@ -75,19 +84,9 @@ export default function GuestPool({ guests, selectedId, onSelect, onAdd, onRemov
             />
           </label>
           <label>
-            人数
-            <input
-              type="number"
-              min={1}
-              max={10}
-              value={selectedGuest.partySize}
-              onChange={(e) => onUpdate({ ...selectedGuest, partySize: Math.max(1, Math.min(10, parseInt(e.target.value) || 1)) })}
-            />
-          </label>
-          <label>
             标签
             <div className="tag-checkboxes">
-              {TAG_OPTIONS.map((tag) => (
+              {TAG_OPTIONS.filter((t) => t !== '家属').map((tag) => (
                 <label key={tag} className="tag-checkbox">
                   <input
                     type="checkbox"
@@ -125,28 +124,48 @@ export default function GuestPool({ guests, selectedId, onSelect, onAdd, onRemov
         {filtered.map((g) => {
           const conflicts = conflictMap.get(g.id) || [];
           const isConflict = conflicts.length > 0;
+          const isCompanion = !!g.primaryId;
           return (
             <div
               key={g.id}
-              className={`guest-chip ${selectedId === g.id ? 'selected' : ''} ${isConflict ? 'conflict' : ''}`}
+              className={`guest-chip ${selectedId === g.id ? 'selected' : ''} ${isConflict ? 'conflict' : ''} ${isCompanion ? 'companion' : ''} ${g.childSeat ? 'is-child' : ''}`}
               draggable
               onDragStart={() => onDragStart(g.id)}
               onDragEnd={() => onDragStart(null)}
               onClick={() => onSelect(selectedId === g.id ? null : g.id)}
             >
               <span className="guest-name">{g.name}</span>
-              {g.tags.length > 0 && <span className="guest-tags">{g.tags.join(', ')}</span>}
+              {g.childSeat && <span className="mini-badge child">童</span>}
+              {isCompanion && !g.childSeat && <span className="mini-badge family">随</span>}
+              {g.tags.filter((t) => t !== '儿童' && t !== '家属').length > 0 && (
+                <span className="guest-tags">{g.tags.filter((t) => t !== '儿童' && t !== '家属').join(',')}</span>
+              )}
               {isConflict && (
                 <span
                   className="conflict-badge"
                   title={`冲突: ${conflicts.map((c) => guests.find((gg) => gg.id === c)?.name || c).join(', ')}`}
                 >!</span>
               )}
-              <button className="guest-remove" onClick={(e) => { e.stopPropagation(); onRemove(g.id); }}>×</button>
+              <button
+                className="guest-remove"
+                onClick={(e) => { e.stopPropagation(); onRemove(g.id); }}
+              >×</button>
             </div>
           );
         })}
+        {filtered.length === 0 && <div className="pool-empty">名单是空的，点上方“粘贴名单导入”</div>}
       </div>
+
+      {showImport && (
+        <ImportWizard
+          existingGuests={guests}
+          onClose={() => setShowImport(false)}
+          onCommit={(batch, meta) => {
+            onImportBatch(batch, meta);
+            setShowImport(false);
+          }}
+        />
+      )}
     </div>
   );
 }

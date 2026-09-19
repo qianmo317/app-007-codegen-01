@@ -73,28 +73,37 @@ export function getTableStats(plan: Plan) {
   let seated = 0;
   let capacity = 0;
   let emptySeats = 0;
+  const seatedIds = new Set<string>();
   const unassigned = plan.guests.filter((g) => {
     const atTable = plan.tables.some((t) => t.seatOrder.includes(g.id));
     return !atTable;
   });
   for (const t of plan.tables) {
+    for (const gid of t.seatOrder) seatedIds.add(gid);
     seated += t.seatOrder.length;
     capacity += t.capacity;
     emptySeats += Math.max(0, t.capacity - t.seatOrder.length);
   }
-  return { seated, capacity, emptySeats, totalGuests: plan.guests.length, unassignedCount: unassigned.length };
-}
-
-export function parseGuestsText(text: string): { name: string; tags: string[] }[] {
-  const lines = text.split(/\n|，|,|;/).map((s) => s.trim()).filter(Boolean);
-  const result: { name: string; tags: string[] }[] = [];
-  for (const line of lines) {
-    const parts = line.split(/\s+/);
-    const name = parts[0];
-    const tags = parts.slice(1);
-    if (name) result.push({ name, tags });
-  }
-  return result;
+  // 总席位需求：每个宾客（主客/家属/小孩）各占一个位，小孩用儿童椅
+  const childCount = plan.guests.filter((g) => g.childSeat).length;
+  const adultCount = plan.guests.length - childCount;
+  const avgCapacity =
+    plan.tables.length > 0
+      ? Math.round(capacity / plan.tables.length)
+      : 10;
+  const suggestedTables = plan.guests.length > 0
+    ? Math.ceil(plan.guests.length / Math.max(1, avgCapacity))
+    : 0;
+  return {
+    seated,
+    capacity,
+    emptySeats,
+    totalGuests: plan.guests.length,
+    adultCount,
+    childCount,
+    unassignedCount: unassigned.length,
+    suggestedTables,
+  };
 }
 
 export function exportPlanToJSON(plan: Plan): string {

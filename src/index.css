@@ -856,3 +856,375 @@ html, body, #root {
   font-size: 18px;
   color: #888;
 }
+
+/* ===== 微信名单导入向导 ===== */
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-dialog {
+  background: #fff;
+  border-radius: 12px;
+  width: min(760px, 94vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 17px;
+  color: #c0392b;
+}
+
+.modal-close {
+  border: none;
+  background: none;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  color: #999;
+}
+.modal-close:hover { color: #333; }
+
+.wizard-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+.wizard-body.review { padding: 12px 20px; }
+
+.wizard-tip {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.7;
+  background: #fff8f0;
+  border-left: 3px solid #d4af37;
+  padding: 8px 12px;
+  border-radius: 0 6px 6px 0;
+}
+
+.wizard-textarea {
+  width: 100%;
+  min-height: 260px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.8;
+  font-family: inherit;
+  resize: vertical;
+}
+.wizard-textarea:focus { outline: none; border-color: #d4af37; }
+
+.wizard-row {
+  margin-top: 8px;
+}
+.btn-link {
+  background: none;
+  border: none;
+  color: #c0392b;
+  cursor: pointer;
+  font-size: 13px;
+  text-decoration: underline;
+}
+
+.modal-footer {
+  border-top: 1px solid #eee;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.wizard-summary { font-size: 13px; color: #555; }
+.wizard-summary b { color: #c0392b; }
+.wizard-actions { display: flex; gap: 8px; margin-left: auto; }
+
+.btn-ghost {
+  background: #fff;
+  border: 1px solid #ccc;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.btn-ghost:hover { background: #f5f5f5; }
+
+/* 问题区 */
+.review-issues {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.issue-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid #eee;
+  flex-wrap: wrap;
+}
+.issue-line.error {
+  background: #fff2f0;
+  border-color: #ffccc7;
+}
+.issue-line.warn {
+  background: #fffbe6;
+  border-color: #ffe58f;
+}
+.issue-flag {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #c0392b;
+  color: #fff;
+  white-space: nowrap;
+}
+.issue-flag.warn { background: #d48806; }
+.issue-jump {
+  border: none;
+  background: none;
+  color: #1677ff;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+  text-decoration: underline;
+}
+.dup-block { flex-direction: column; gap: 6px; }
+.dup-text { color: #555; }
+.dup-choice { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+.dup-choice label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 3px 10px;
+  border: 1px solid #ddd;
+  border-radius: 999px;
+  font-size: 12px;
+}
+.dup-choice label.active { border-color: #c0392b; background: #fff1f0; color: #c0392b; }
+.dup-required { color: #c0392b; font-size: 12px; }
+
+/* 条目卡 */
+.review-list { display: flex; flex-direction: column; gap: 8px; }
+.entry-card {
+  display: flex;
+  gap: 10px;
+  border: 1px solid #e8e0d8;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fff;
+}
+.entry-card.unselected { opacity: 0.5; }
+.entry-card.has-error { border-color: #c0392b; background: #fff8f7; }
+.entry-card.flash {
+  animation: flashLine 1.6s ease;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.55);
+}
+@keyframes flashLine {
+  0% { box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.9); }
+  100% { box-shadow: 0 0 0 3px rgba(212, 175, 55, 0); }
+}
+.entry-check { padding-top: 4px; }
+.entry-main { flex: 1; min-width: 0; }
+.entry-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.entry-name {
+  font-size: 15px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 6px;
+  min-width: 72px;
+  max-width: 180px;
+  font-family: inherit;
+}
+.entry-name:focus { outline: none; border-color: #d4af37; background: #fff; }
+.entry-line { color: #999; font-size: 12px; }
+
+.badge {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.badge-absent { background: #f5f5f5; color: #888; }
+.badge-pending { background: #fff1d6; color: #ad6800; }
+.badge-dup { background: #fff1f0; color: #c0392b; border: 1px solid #ffa39e; }
+.badge-tag { background: #f0f5ff; color: #2f54eb; }
+
+.entry-members { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px dashed #d4af37;
+  background: #fffdf5;
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+.member-chip.child { border-style: solid; border-color: #ffa940; background: #fff7e6; }
+.member-name {
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  width: 110px;
+  font-family: inherit;
+}
+.member-name:focus { outline: none; }
+.child-flag {
+  font-size: 10px;
+  color: #d46b08;
+  background: #ffe7ba;
+  padding: 0 5px;
+  border-radius: 4px;
+}
+.member-remove {
+  border: none;
+  background: none;
+  color: #bbb;
+  cursor: pointer;
+  font-size: 14px;
+}
+.member-remove:hover { color: #c0392b; }
+
+.entry-warnings { margin-top: 6px; display: flex; gap: 10px; flex-wrap: wrap; }
+.entry-warning { font-size: 12px; color: #c0392b; }
+.entry-dropped {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #888;
+  background: #fafafa;
+  border-radius: 4px;
+  padding: 2px 8px;
+  display: inline-block;
+}
+.entry-raw { margin-top: 4px; font-size: 12px; color: #aaa; }
+.entry-raw summary { cursor: pointer; }
+
+.skipped-box {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #888;
+  background: #fafafa;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+.skipped-line { margin-top: 4px; }
+.skipped-raw { color: #bbb; }
+
+/* ===== 改动记录 ===== */
+.changelog-panel {
+  border: 1px solid #e8e0d8;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  background: #fffdf8;
+  font-size: 12px;
+}
+.changelog-toggle {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #666;
+  font-family: inherit;
+}
+.changelog-list {
+  border-top: 1px solid #f0e8dd;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 4px 8px 8px;
+}
+.changelog-empty { color: #aaa; padding: 6px 4px; }
+.changelog-item {
+  padding: 6px 4px;
+  border-bottom: 1px dashed #f0e8dd;
+}
+.changelog-item:last-child { border-bottom: none; }
+.changelog-head { display: flex; gap: 6px; align-items: baseline; }
+.changelog-kind {
+  font-size: 10px;
+  padding: 0 5px;
+  border-radius: 3px;
+  color: #fff;
+  background: #c0392b;
+  flex-shrink: 0;
+}
+.changelog-kind.kind-rollback { background: #8c8c8c; }
+.changelog-kind.kind-edit { background: #2f54eb; }
+.changelog-summary {
+  flex: 1;
+  color: #444;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.changelog-time { color: #bbb; flex-shrink: 0; }
+.changelog-actions { margin-top: 4px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.changelog-note { color: #999; margin-top: 2px; }
+.rollback-ask { color: #c0392b; }
+.btn-danger-mini {
+  border: 1px solid #c0392b;
+  color: #c0392b;
+  background: #fff;
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.btn-danger-mini:hover { background: #c0392b; color: #fff; }
+.btn-ghost-mini {
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.changelog-item.rolled .changelog-summary { text-decoration: line-through; color: #aaa; }
+
+/* 宾客池小徽标 */
+.btn-import-main { background: #c0392b !important; }
+.mini-badge {
+  font-size: 10px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+.mini-badge.child { background: #fa8c16; }
+.mini-badge.family { background: #8c8c8c; }
+.guest-chip.companion { background: #faf7f0; }
+.guest-chip.is-child { border-left: 3px solid #fa8c16; }
+.pool-empty { color: #aaa; font-size: 13px; text-align: center; padding: 20px 0; }
+
+.stat-suggest b { color: #d48806; }
