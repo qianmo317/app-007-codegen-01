@@ -24,7 +24,7 @@ export default function PlanPage() {
     if (!id) return;
     getPlan(id).then((p) => {
       if (!p) {
-        const fallback = { id, name: '未命名方案', tables: [], guests: [], rules: [], updatedAt: Date.now() };
+        const fallback = { id, name: '未命名方案', tables: [], guests: [], rules: [], changelog: [], updatedAt: Date.now() };
         historyRef.current = createHistoryManager(fallback);
         setPlan(fallback);
       } else {
@@ -106,6 +106,7 @@ export default function PlanPage() {
       <div className="plan-body">
         <GuestPool
           guests={plan.guests}
+          changelog={plan.changelog || []}
           selectedId={selectedGuestId}
           onSelect={setSelectedGuestId}
           onAdd={(g) => dispatch({ type: 'addGuest', guest: g })}
@@ -116,6 +117,8 @@ export default function PlanPage() {
             const guests = plan.guests.map((gg) => gg.id === g.id ? g : gg);
             dispatch({ type: 'updateGuests', guests });
           }}
+          onImport={(guests, log) => dispatch({ type: 'importGuests', guests, log })}
+          onRollback={(batchId, log) => dispatch({ type: 'rollbackBatch', batchId, log })}
         />
         <Canvas
           plan={plan}

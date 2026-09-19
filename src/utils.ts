@@ -12,6 +12,7 @@ export function createEmptyPlan(name = '未命名方案'): Plan {
     tables: [],
     guests: [],
     rules: [],
+    changelog: [],
     updatedAt: Date.now(),
   };
 }
@@ -73,7 +74,11 @@ export function getTableStats(plan: Plan) {
   let seated = 0;
   let capacity = 0;
   let emptySeats = 0;
+  let totalHeads = 0;
+  let children = 0;
   const unassigned = plan.guests.filter((g) => {
+    totalHeads += g.partySize;
+    if (g.role === 'child' || g.childSeat) children += 1;
     const atTable = plan.tables.some((t) => t.seatOrder.includes(g.id));
     return !atTable;
   });
@@ -82,19 +87,15 @@ export function getTableStats(plan: Plan) {
     capacity += t.capacity;
     emptySeats += Math.max(0, t.capacity - t.seatOrder.length);
   }
-  return { seated, capacity, emptySeats, totalGuests: plan.guests.length, unassignedCount: unassigned.length };
-}
-
-export function parseGuestsText(text: string): { name: string; tags: string[] }[] {
-  const lines = text.split(/\n|，|,|;/).map((s) => s.trim()).filter(Boolean);
-  const result: { name: string; tags: string[] }[] = [];
-  for (const line of lines) {
-    const parts = line.split(/\s+/);
-    const name = parts[0];
-    const tags = parts.slice(1);
-    if (name) result.push({ name, tags });
-  }
-  return result;
+  return {
+    seated,
+    capacity,
+    emptySeats,
+    totalGuests: plan.guests.length,
+    totalHeads,
+    children,
+    unassignedCount: unassigned.length,
+  };
 }
 
 export function exportPlanToJSON(plan: Plan): string {

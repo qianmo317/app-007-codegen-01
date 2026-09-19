@@ -50,6 +50,21 @@ export function createHistoryManager(initial: Plan): HistoryManager {
       case 'addTable':
         p.tables.push(deepClone(command.table));
         break;
+      case 'importGuests': {
+        p.guests.push(...deepClone(command.guests));
+        p.changelog = [deepClone(command.log), ...(p.changelog || [])];
+        break;
+      }
+      case 'rollbackBatch': {
+        const removedIds = new Set(p.guests.filter((g) => g.batchId === command.batchId).map((g) => g.id));
+        p.guests = p.guests.filter((g) => g.batchId !== command.batchId);
+        p.tables.forEach((t) => {
+          t.seatOrder = t.seatOrder.filter((id) => !removedIds.has(id));
+        });
+        p.rules = p.rules.filter((r) => !removedIds.has(r.a) && !removedIds.has(r.b));
+        p.changelog = [deepClone(command.log), ...(p.changelog || [])];
+        break;
+      }
       case 'removeTable': {
         p.tables = p.tables.filter((t) => t.id !== command.tableId);
         break;
